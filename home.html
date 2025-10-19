@@ -1,0 +1,25 @@
+<!-- templates/home.html -->
+{% extends "base.html" %}
+
+{% block title %}Ana Sayfa{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center py-5 bg-light rounded-3 shadow-lg">
+    <h1 class="display-4 text-center text-dark mb-4">Ön Muhasebe Uygulamasına Hoş Geldiniz!</h1>
+    <p class="lead text-center text-muted mb-5">
+        İşletmenizin finansal süreçlerini kolayca yönetin: Cari Hesap, Fatura, Gelir-Gider, Teklif, Stok ve daha fazlası...
+    </p>
+    {% if 'username' not in session %}
+    <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg btn-custom">
+            Giriş Yap
+        </a>
+        <a href="{{ url_for('register') }}" class="btn btn-success btn-lg btn-custom">
+            Kayıt Ol
+        </a>
+    </div>
+    {% else %}
+    <p class="fs-5 text-dark">Zaten giriş yaptınız. Şimdi <a href="{{ url_for('dashboard') }}" class="text-primary text-decoration-none fw-semibold">panonuza</a> gidebilirsiniz.</p>
+    {% endif %}
+</div>
+{% endblock %}

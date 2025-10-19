@@ -1,0 +1,382 @@
+<!-- templates/envanter.html -->
+{% extends "base.html" %}
+{% block title %}Stok Yönetimi{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4 display-5 text-dark">Stok Yönetimi</h2>
+
+    <p class="text-muted mb-4">Ürünlerinizin mevcut stok durumlarını buradan takip edebilir ve güncelleyebilirsiniz. Bir ürün için birden fazla konumda stok tutabilirsiniz.</p>
+
+    {# Ürün Tanımlarına Geri Dön butonu #}
+    <div class="d-flex justify-content-start mb-4">
+        <a href="{{ url_for('stok.stok_listesi') }}" class="btn btn-secondary btn-lg rounded-pill btn-custom">
+            <i class="bi bi-tags-fill me-2"></i> Ürün Tanımlarına Geri Dön
+        </a>
+    </div>
+
+    {# Filtreleme Alanı #}
+    <div class="card mb-4 shadow-sm rounded-3">
+        <div class="card-header bg-primary text-white rounded-top-3">
+            <h5 class="mb-0">Filtreleme Seçenekleri</h5>
+        </div>
+        <div class="card-body">
+            <form id="filterForm" method="GET" action="{{ url_for('stok.envanter_listesi') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-5">
+                        <label for="productNameFilter" class="form-label visually-hidden">Ürün Adına Göre Ara</label>
+                        <input type="text" class="form-control rounded-pill" id="productNameFilter" name="product_name_filter" 
+                               placeholder="Ürün Adına Göre Ara..." value="{{ product_name_filter | default('') }}">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="locationFilter" class="form-label visually-hidden">Konuma Göre Filtrele</label>
+                        <select class="form-select rounded-pill" id="locationFilter" name="location_filter">
+                            <option value="">Tüm Konumlar</option>
+                            {% for loc in existing_locations %}
+                                <option value="{{ loc }}" {% if location_filter == loc %}selected{% endif %}>{{ loc }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary rounded-pill w-100">
+                            <i class="bi bi-funnel-fill me-2"></i> Filtrele
+                        </button>
+                    </div>
+                    {# Filtreleri Temizle butonu #}
+                    {% if product_name_filter or location_filter %}
+                    <div class="col-12 mt-2">
+                        <a href="{{ url_for('stok.envanter_listesi') }}" class="btn btn-outline-secondary rounded-pill w-100">
+                            <i class="bi bi-x-circle me-2"></i> Filtreleri Temizle
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if product_inventory_data %} 
+    <div class="table-responsive rounded-3 shadow-sm">
+        <table class="table table-hover table-bordered mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Ürün Kodu</th>
+                    <th>Ürün Adı</th>
+                    <th>Fiyat</th> {# Yeni: Fiyat sütunu #}
+                    <th>Mevcut Adet</th>
+                    <th>Konum</th>
+                    <th>Son Güncelleme</th>
+                    <th style="width: 150px;">İşlemler</th> 
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in product_inventory_data %} 
+                    {% for entry in product.inventory_entries %} 
+                    <tr>
+                        {% if loop.first %} 
+                            <td rowspan="{{ product.inventory_entries | length }}" class="align-middle">
+                                {{ product.user_product_id | default('') }}
+                            </td>
+                            <td rowspan="{{ product.inventory_entries | length }}" class="align-middle">
+                                {{ product.name | default('') }} 
+                            </td>
+                            <td rowspan="{{ product.inventory_entries | length }}" class="align-middle text-nowrap"> {# Yeni: Fiyat değeri #}
+                                {{ "%.2f" | format(product.price | default(0.00)) }} TL 
+                            </td>
+                        {% endif %}
+                        
+                        {# Mevcut Adet #}
+                        <td>
+                            <input type="number" class="form-control form-control-sm rounded-pill quantity-input" 
+                                   value="{{ entry.quantity | default(0) }}" min="0" 
+                                   data-product-id="{{ product.id }}" 
+                                   data-inventory-id="{{ entry.inventory_id }}">
+                        </td>
+                        {# Konum #}
+                        <td>
+                            <select class="form-select form-select-sm rounded-pill location-select" 
+                                    data-product-id="{{ product.id }}" 
+                                    data-inventory-id="{{ entry.inventory_id }}">
+                                <option value="" {% if not entry.location %}selected{% endif %}>Konum Seçin (İsteğe Bağlı)</option>
+                                {# Mevcut konumları çek #}
+                                {% for loc in existing_locations %}
+                                    <option value="{{ loc }}" {% if entry.location == loc %}selected{% endif %}>{{ loc }}</option>
+                                {% endfor %}
+                                <option value="__new_location__">Yeni Konum Ekle...</option>
+                            </select>
+                            <input type="text" class="form-control form-control-sm rounded-pill new-location-input mt-2" 
+                                   placeholder="Yeni Konum Adı" 
+                                   style="display: none;" 
+                                   data-product-id="{{ product.id }}"
+                                   data-inventory-id="{{ entry.inventory_id }}">
+                        </td>
+                        {# Son Güncelleme #}
+                        <td>{{ entry.last_updated | default('N/A') }}</td>
+                        
+                        {# İşlemler #}
+                        <td class="d-flex flex-column gap-2">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill update-inventory-btn" 
+                                    data-product-id="{{ product.id }}" 
+                                    data-inventory-id="{{ entry.inventory_id }}">
+                                Güncelle
+                            </button>
+                            {% if entry.inventory_id is not none %} 
+                                <button type="button" class="btn btn-sm btn-danger rounded-pill delete-inventory-btn"
+                                        data-bs-toggle="modal" data-bs-target="#deleteInventoryConfirmModal" 
+                                        data-inventory-id="{{ entry.inventory_id }}"
+                                        data-product-name="{{ product.name }}" 
+                                        data-location="{{ entry.location }}">
+                                    Sil
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {# Her ürün için yeni bir envanter kaydı ekleme satırı #}
+                    <tr>
+                        <td colspan="7" class="bg-light text-end py-3"> {# colspan 7'ye çıkarıldı #}
+                            <div class="d-inline-flex align-items-center gap-2">
+                                <input type="number" class="form-control form-control-sm rounded-pill new-entry-quantity-input" 
+                                       placeholder="Yeni Adet" min="0" value="0"
+                                       data-product-id="{{ product.id }}">
+                                <select class="form-select form-select-sm rounded-pill new-entry-location-select"
+                                        data-product-id="{{ product.id }}">
+                                    <option value="" selected disabled>Yeni Konum Seçin</option>
+                                    {% for loc in existing_locations %}
+                                        <option value="{{ loc }}">{{ loc }}</option>
+                                    {% endfor %}
+                                    <option value="__new_location__">Yeni Konum Ekle...</option>
+                                </select>
+                                <input type="text" class="form-control form-control-sm rounded-pill new-entry-new-location-input" 
+                                       placeholder="Yeni Konum Adı" style="display: none;"
+                                       data-product-id="{{ product.id }}">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill add-new-inventory-btn"
+                                        data-product-id="{{ product.id }}">
+                                    <i class="bi bi-plus-circle me-1"></i> Konum Ekle
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p class="text-muted">Henüz hiç ürün tanımı mevcut değil veya envanter bilgisi girilmemiş. Lütfen önce "Ürün Tanımları Yönetimi" sayfasına giderek ürünler ekleyin.</p>
+    {% endif %}
+</div>
+
+<!-- Envanter Kaydı Silme Onay Modalı -->
+<div class="modal fade" id="deleteInventoryConfirmModal" tabindex="-1" aria-labelledby="deleteInventoryConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteInventoryConfirmModalLabel">Envanter Kaydını Silmeyi Onayla</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>"<span id="productNameToDelete"></span>"</strong> adlı ürünün <strong>"<span id="locationToDelete"></span>"</strong> konumundaki envanter kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-danger rounded-pill" id="confirmDeleteInventoryButton">Evet, Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const updateButtons = document.querySelectorAll('.update-inventory-btn');
+    const deleteInventoryButtons = document.querySelectorAll('.delete-inventory-btn'); 
+    const addInventoryButtons = document.querySelectorAll('.add-new-inventory-btn');
+    const allLocationSelects = document.querySelectorAll('.location-select, .new-entry-location-select');
+    const confirmDeleteInventoryButton = document.getElementById('confirmDeleteInventoryButton'); 
+    let inventoryIdToDelete = null; 
+
+    // Tüm konum select'leri ve yeni konum inputları için change event listener
+    allLocationSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const productId = this.dataset.productId;
+            let newLocationInput;
+
+            if (this.classList.contains('location-select')) { 
+                newLocationInput = document.querySelector(`.new-location-input[data-product-id="${productId}"][data-inventory-id="${this.dataset.inventoryId}"]`);
+            } else { 
+                newLocationInput = document.querySelector(`.new-entry-new-location-input[data-product-id="${productId}"]`);
+            }
+
+            if (this.value === '__new_location__') {
+                newLocationInput.style.display = 'block';
+                newLocationInput.value = ''; 
+                newLocationInput.focus();
+            } else {
+                newLocationInput.style.display = 'none';
+            }
+        });
+    });
+
+    // Mevcut envanter kaydını güncelleme
+    updateButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            const inventoryId = this.dataset.inventoryId;
+            const quantityInput = document.querySelector(`.quantity-input[data-product-id="${productId}"][data-inventory-id="${inventoryId}"]`);
+            const locationSelect = document.querySelector(`.location-select[data-product-id="${productId}"][data-inventory-id="${inventoryId}"]`);
+            const newLocationInput = document.querySelector(`.new-location-input[data-product-id="${productId}"][data-inventory-id="${inventoryId}"]`);
+
+            const quantity = quantityInput.value.trim();
+            let location = locationSelect.value;
+
+            if (location === '__new_location__') {
+                location = newLocationInput.value.trim();
+            }
+
+            if (!quantity || isNaN(quantity) || parseInt(quantity) < 0) {
+                alert('Lütfen geçerli bir pozitif adet girin.');
+                return;
+            }
+
+            if (locationSelect.value === '__new_location__' && !location) {
+                alert('Lütfen yeni konum adını girin veya mevcut bir konum seçin.');
+                return;
+            }
+            
+            const finalLocation = location || ''; 
+
+            const formData = new URLSearchParams();
+            formData.append('product_id', productId);
+            formData.append('inventory_id', inventoryId); 
+            formData.append('quantity', quantity);
+            formData.append('location', finalLocation); 
+
+            fetch('{{ url_for("stok.update_inventory") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    console.log("Sayfa yenileniyor..."); 
+                    window.location.reload(); 
+
+                } else {
+                    alert('Hata oluştu: ' + data.message + '\nDetaylar için konsolu kontrol edin.');
+                    console.error('API Hatası:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('İşlem sırasında beklenmeyen bir hata oluştu:', error);
+                alert('İşlem sırasında beklenmeyen bir hata oluştu. Detaylar için konsolu kontrol edin.');
+            });
+        });
+    });
+
+    // Yeni envanter kaydı ekleme
+    addInventoryButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            const quantityInput = document.querySelector(`.new-entry-quantity-input[data-product-id="${productId}"]`);
+            const locationSelect = document.querySelector(`.new-entry-location-select[data-product-id="${productId}"]`);
+            const newLocationInput = document.querySelector(`.new-entry-new-location-input[data-product-id="${productId}"]`);
+
+            const quantity = quantityInput.value.trim();
+            let location = locationSelect.value;
+
+            if (location === '__new_location__') {
+                location = newLocationInput.value.trim();
+            }
+
+            if (!quantity || isNaN(quantity) || parseInt(quantity) < 0) {
+                alert('Lütfen geçerli bir pozitif adet girin.');
+                return;
+            }
+            
+            if (locationSelect.value === '__new_location__' && !location) {
+                alert('Lütfen yeni konum adını girin veya mevcut bir konum seçin.');
+                return;
+            }
+            
+            const finalLocation = location || ''; 
+
+            const formData = new URLSearchParams();
+            formData.append('product_id', productId);
+            formData.append('quantity', quantity);
+            formData.append('location', finalLocation); 
+
+            fetch('{{ url_for("stok.update_inventory") }}', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    console.log("Sayfa yenileniyor..."); 
+                    window.location.reload(); 
+                } else {
+                    alert('Hata oluştu: ' + data.message + '\nDetaylar için konsolu kontrol edin.');
+                    console.error('API Hatası:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('İşlem sırasında beklenmeyen bir hata oluştu:', error);
+                alert('İşlem sırasında beklenmeyen bir hata oluştu. Detaylar için konsolu kontrol edin.');
+            });
+        });
+    });
+
+    // Envanter kaydı silme onayı modalı gösterildiğinde
+    const deleteInventoryConfirmModal = document.getElementById('deleteInventoryConfirmModal');
+    deleteInventoryConfirmModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget; 
+        inventoryIdToDelete = button.dataset.inventoryId; 
+        const productName = button.dataset.productName;
+        const location = button.dataset.location;
+
+        document.getElementById('productNameToDelete').textContent = productName;
+        document.getElementById('locationToDelete').textContent = location || 'Boş Konum';
+    });
+
+    // Modal içindeki "Evet, Sil" butonuna click event listener (AJAX ile)
+    confirmDeleteInventoryButton.addEventListener('click', function() {
+        if (inventoryIdToDelete) {
+            fetch('{{ url_for("stok.delete_inventory_entry", inventory_id=0) }}'.replace('/0', '/' + inventoryIdToDelete), {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded', 
+                }
+            })
+            .then(response => response.json()) 
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    window.location.reload(); 
+                } else {
+                    alert('Silme hatası: ' + data.message);
+                    console.error('API Silme Hatası:', data.message);
+                }
+                const modal = bootstrap.Modal.getInstance(deleteInventoryConfirmModal);
+                modal.hide();
+            })
+            .catch(error => {
+                console.error('Silme işlemi sırasında beklenmeyen bir hata oluştu:', error);
+                alert('Silme işlemi sırasında beklenmeyen bir hata oluştu. Detaylar için konsolu kontrol edin.');
+                const modal = bootstrap.Modal.getInstance(deleteInventoryConfirmModal);
+                modal.hide();
+            });
+        }
+    });
+});
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}

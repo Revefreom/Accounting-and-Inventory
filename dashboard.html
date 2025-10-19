@@ -1,0 +1,89 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Pano{% endblock %}
+
+{% block content %}
+<div class="bg-white p-5 rounded-3 shadow-lg">
+    <h1 class="display-5 text-dark mb-4">Pano</h1>
+    <p class="lead text-muted mb-5">Merhaba, <strong class="text-primary">{{ user }}</strong>! Burası ana panonuz.</p>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <!-- Modül kartları -->
+        <div class="col">
+            <div class="card h-100 border-primary card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-primary"><i class="bi bi-person-lines-fill me-2"></i> Cari Hesap Takibi</h5>
+                    <p class="card-text text-muted">Müşteri ve tedarikçi hesaplarınızı yönetin.</p>
+                    <a href="#" class="btn btn-outline-primary btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-success card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-success"><i class="bi bi-receipt-cutoff me-2"></i> Fatura Takibi</h5>
+                    <p class="card-text text-muted">Gelir ve gider faturalarınızı takip edin.</p>
+                    <a href="#" class="btn btn-outline-success btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-warning card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-warning"><i class="bi bi-currency-dollar me-2"></i> Gelir-Gider Takibi</h5>
+                    <p class="card-text text-muted">İşletmenizin nakit akışını izleyin.</p>
+                    <a href="#" class="btn btn-outline-warning btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-info card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-info"><i class="bi bi-file-earmark-text me-2"></i> Teklif Yönetimi</h5>
+                    <p class="card-text text-muted">Müşterilerinize teklifler hazırlayın ve takip edin.</p>
+                    <a href="#" class="btn btn-outline-info btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-danger card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-danger"><i class="bi bi-wallet-fill me-2"></i> Nakit Yönetimi</h5>
+                    <p class="card-text text-muted">Kasa ve banka işlemlerinizi kontrol edin.</p>
+                    <a href="#" class="btn btn-outline-danger btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-teal card-custom" style="border-color: #20c997 !important;">
+                <div class="card-body">
+                    <h5 class="card-title text-teal" style="color: #20c997 !important;"><i class="bi bi-boxes me-2"></i> Stok ve Depo Takibi</h5>
+                    <p class="card-text text-muted">Stoklarınızı ve depo hareketlerini yönetin.</p>
+                    <a href="{{ url_for('stok.stok_listesi') }}" class="btn btn-outline-success btn-sm rounded-pill" style="border-color: #20c997; color: #20c997;">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-purple card-custom" style="border-color: #6f42c1 !important;">
+                <div class="card-body">
+                    <h5 class="card-title text-purple" style="color: #6f42c1 !important;"><i class="bi bi-journal-check me-2"></i> Serbest Meslek Makbuzu Takibi</h5>
+                    <p class="card-text text-muted">Serbest meslek makbuzlarınızı düzenleyin ve takip edin.</p>
+                    <a href="#" class="btn btn-outline-info btn-sm rounded-pill" style="border-color: #6f42c1; color: #6f42c1;">Git</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-secondary card-custom">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary"><i class="bi bi-graph-up me-2"></i> Ön Muhasebe Raporları</h5>
+                    <p class="card-text text-muted">Detaylı raporlarla iş kararlarınızı destekleyin.</p>
+                    <a href="#" class="btn btn-outline-secondary btn-sm rounded-pill">Git</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Bootstrap Icons (Optional, for better visuals) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}

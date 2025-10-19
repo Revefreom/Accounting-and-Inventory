@@ -1,0 +1,35 @@
+<!-- templates/register.html -->
+{% extends "base.html" %}
+
+{% block title %}Kayıt Ol{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center min-vh-75">
+    <div class="card card-custom p-4 w-100" style="max-width: 450px;">
+        <div class="card-body">
+            <h2 class="card-title text-center text-dark mb-4 display-6">Kayıt Ol</h2>
+            <form method="POST" action="{{ url_for('register') }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label fw-bold">Kullanıcı Adı:</label>
+                    <input type="text" id="username" name="username" required
+                           class="form-control form-control-lg rounded-pill" placeholder="Kullanıcı adınızı girin">
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label fw-bold">Şifre:</label>
+                    <input type="password" id="password" name="password" required
+                           class="form-control form-control-lg rounded-pill" placeholder="Şifrenizi girin">
+                </div>
+                <div class="d-grid">
+                    <button type="submit"
+                            class="btn btn-primary btn-lg btn-custom">
+                        Kayıt Ol
+                    </button>
+                </div>
+                <p class="text-center text-muted mt-3 mb-0">
+                    Zaten hesabınız var mı? <a href="{{ url_for('login') }}" class="text-primary text-decoration-none fw-semibold">Giriş Yap</a>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

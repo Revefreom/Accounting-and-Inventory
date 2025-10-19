@@ -1,0 +1,599 @@
+<!-- templates/stok.html -->
+{% extends "base.html" %}
+{% block title %}Ürün Tanımları Yönetimi{% endblock %} 
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4 display-5 text-dark">Ürün Tanımları Yönetimi</h2> 
+
+    <!-- Yeni Parametre Ekleme Formu -->
+    <div class="card card-custom mb-5 p-4">
+        <h3 class="card-title text-primary mb-3">Yeni Ürün Özelliği (Parametre) Ekle</h3> 
+        <form action="{{ url_for('stok.add_column') }}" method="POST" class="row g-3">
+            <div class="col-md-6">
+                <label for="new_column_name_input" class="form-label fw-bold">Özellik Adı:</label> 
+                <input type="text" id="new_column_name_input" name="new_column" class="form-control rounded-pill" placeholder="Örn: Renk, Boyut, Malzeme" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Özellik Tipi:</label> 
+                <div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="column_type" id="type_text" value="text" checked onchange="toggleAddOptionsInput()">
+                        <label class="form-check-label" for="type_text">Metin</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="column_type" id="type_number" value="number" onchange="toggleAddOptionsInput()">
+                        <label class="form-check-label" for="type_number">Sayı</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="column_type" id="type_select" value="select" onchange="toggleAddOptionsInput()">
+                        <label class="form-check-label" for="type_select">Seçenekli Liste</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12" id="add_options_input_group" style="display: none;">
+                <label for="new_option_input_add" class="form-label fw-bold">Seçenekleri Yönet:</label>
+                <div class="input-group mb-3">
+                    <input type="text" id="new_option_input_add" class="form-control rounded-pill" placeholder="Yeni seçenek girin">
+                    <button class="btn btn-outline-success rounded-pill ms-2" type="button" id="add_option_button_add">Ekle</button>
+                </div>
+                <div class="list-group mb-3" id="current_options_list_add">
+                    <!-- Seçenekler buraya JavaScript ile yüklenecek -->
+                </div>
+                <input type="hidden" name="options_hidden_input" id="options_hidden_input">
+                <small class="text-muted">Seçenekleri eklemek için yukarıdaki alanı kullanın. Eklendikçe listede görünecektir.</small>
+            </div>
+            <div class="col-12 text-end">
+                <button class="btn btn-primary btn-custom" type="submit">Özelliği Ekle</button> 
+            </div>
+        </form>
+        <small class="text-muted mt-2">Ekleyeceğiniz özellikler ürünlerinize yeni nitelikler olarak eklenecektir. (Boşluklar alt çizgiye çevrilir ve küçük harfe dönüştürülür)</small> 
+    </div>
+
+    <!-- Parametreleri Yönet Modalı Tetikleyici Buton -->
+    <button type="button" class="btn btn-info btn-custom mb-4" data-bs-toggle="modal" data-bs-target="#manageParametersModal">
+        <i class="bi bi-pencil-square me-2"></i> Ürün Özelliklerini Yönet (Ad Değiştir / Seçenek Düzenle) 
+    </button>
+    
+    <!-- Ürün ekleme / düzenleme formu -->
+    <button class="btn btn-success btn-custom mb-4" type="button" data-bs-toggle="collapse" data-bs-target="#addProductForm" aria-expanded="{% if edit_data %}true{% else %}false{% endif %}" aria-controls="addProductForm">
+        {% if edit_data %}Ürün Tanımını Düzenleme Formu{% else %}Yeni Ürün Tanımı Ekle{% endif %} 
+    </button>
+
+    <div id="addProductForm" class="collapse {% if edit_data %}show{% endif %} card card-custom p-4 mb-5">
+        <h3 class="card-title text-success mb-4">{{ 'Ürün Tanımını Düzenle' if edit_data else 'Yeni Ürün Tanımı Ekle' }}</h3> 
+        <form method="POST" action="{% if edit_data %}{{ url_for('stok.update_product', product_id=edit_data.id) }}{% else %}{{ url_for('stok.add_product') }}{% endif %}" class="row g-3">
+            {% for col in columns_for_form %}
+                <div class="col-md-6 col-lg-4">
+                    {% if col.name == 'user_product_id' %}
+                        <label for="product_{{ col.name }}" class="form-label fw-bold">Ürün Kodu:</label>
+                        <input type="text" id="product_{{ col.name }}" name="{{ col.name }}" value="{{ (edit_data[col.name] | default('')) if edit_data else '' }}"
+                               class="form-control rounded-pill bg-light" readonly>
+                    {% elif col.name == 'name' %}
+                        <label for="product_{{ col.name }}" class="form-label fw-bold">Ürün Adı: <span class="text-danger">*</span></label>
+                        <input type="text" id="product_{{ col.name }}" name="{{ col.name }}" value="{{ edit_data[col.name] if edit_data else '' }}" required
+                               class="form-control rounded-pill" placeholder="Ürün adı">
+                    {% elif col.name == 'price' %}
+                        <label for="product_{{ col.name }}" class="form-label fw-bold">Fiyat: <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" id="product_{{ col.name }}" name="{{ col.name }}" value="{{ '%.2f'|format(edit_data[col.name] | default(0.0)) if edit_data else '' }}" required
+                               class="form-control rounded-pill" placeholder="Fiyat">
+                    {% else %} {# Dinamik eklenen sütunlar #}
+                        <label for="product_{{ col.name }}" class="form-label fw-bold">{{ col.name.replace('_', ' ').title() }}:</label>
+                        {% if col.column_type == 'text' %}
+                            <input type="text" id="product_{{ col.name }}" name="{{ col.name }}" value="{{ edit_data[col.name] if edit_data else '' }}"
+                                   class="form-control rounded-pill" placeholder="{{ col.name.replace('_', ' ').title() }}">
+                        {% elif col.column_type == 'number' %}
+                            <input type="number" step="any" id="product_{{ col.name }}" name="{{ col.name }}" value="{{ (edit_data[col.name] | default('')) if edit_data else '' }}"
+                                   class="form-control rounded-pill" placeholder="{{ col.name.replace('_', ' ').title() }}">
+                        {% elif col.column_type == 'select' %}
+                            <select id="product_{{ col.name }}" name="{{ col.name }}" class="form-select rounded-pill">
+                                <option value="" disabled {% if not edit_data or (edit_data[col.name] is none or edit_data[col.name] == '') %}selected{% endif %}>Seçim Yapın</option>
+                                {% for option in col.options %}
+                                    <option value="{{ option }}" {% if edit_data and edit_data[col.name] == option %}selected{% endif %}>{{ option }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <div class="col-12 d-flex justify-content-end gap-3 mt-4">
+                <button type="submit" class="btn btn-primary btn-lg btn-custom flex-grow-1 flex-md-grow-0">
+                    {% if edit_data %}Tanımı Güncelle{% else %}Ürün Tanımını Kaydet{% endif %} 
+                </button>
+                {% if edit_data %}
+                    <a href="{{ url_for('stok.stok_listesi') }}" class="btn btn-secondary btn-lg btn-custom flex-grow-1 flex-md-grow-0">
+                        İptal
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Excel'e Aktar ve Sütunları Yönet Butonları -->
+    <div class="d-flex justify-content-between mb-4">
+        <a href="{{ url_for('stok.export_excel') }}" class="btn btn-outline-success btn-custom">
+            <i class="bi bi-file-earmark-excel me-2"></i> Ürün Tanımlarını Excel'e Aktar 
+        </a>
+        <button type="button" class="btn btn-outline-secondary btn-custom" data-bs-toggle="modal" data-bs-target="#columnVisibilityModal">
+            <i class="bi bi-eye me-2"></i> Sütunları Yönet
+        </button>
+    </div>
+
+    {# Yeni Stok Yönetimi butonu #}
+    <div class="d-flex justify-content-end mb-4">
+        <a href="{{ url_for('stok.envanter_listesi') }}" class="btn btn-warning btn-lg btn-custom"> {# HREF güncellendi #}
+            <i class="bi bi-box-seam me-2"></i> Stok Yönetimine Git 
+        </a>
+    </div>
+
+    <!-- Ürün tablosu -->
+    <h3 class="mb-3 text-dark">Mevcut Ürün Tanımları</h3> 
+    {% if stock_data %} 
+    <div class="table-responsive rounded-3 shadow-sm">
+        <table class="table table-hover table-bordered mb-0">
+            <thead class="table-dark">
+                <tr>
+                    {% for col_info in all_display_columns_with_info %}
+                        <th class="column-header {{ 'd-none' if not column_visibility_preferences.get(col_info.name, true) }}" data-column-name="{{ col_info.name }}">
+                            {{ col_info.name.replace('_', ' ').title() }}
+                        </th>
+                    {% endfor %}
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in stock_data %}
+                    <tr>
+                        {% for col_info in all_display_columns_with_info %}
+                            <td class="column-cell {{ 'd-none' if not column_visibility_preferences.get(col_info.name, true) }}" data-column-name="{{ col_info.name }}">
+                                {# user_product_id sütunu için int göster #}
+                                {% if col_info.name == 'user_product_id' %}
+                                    {{ item[col_info.name] | int | default('') }}
+                                {% elif col_info.name == 'price' %}
+                                    {# Fiyat için her zaman 2 ondalık ve TL #}
+                                    {% if item[col_info.name] is not none and item[col_info.name] != '' %}
+                                        {% set val = item[col_info.name] | float %}
+                                        {{ '%.2f'|format(val) }} TL
+                                    {% else %}
+                                        {# Boş veya geçersiz fiyat değerleri için boş string göster #}
+                                        {{ '' }}
+                                    {% endif %}
+                                {% elif col_info.column_type == 'number' %}
+                                    {# Diğer sayısal parametreler için, TL olmadan ve tam sayıysa ondalık olmadan #}
+                                    {% if item[col_info.name] is not none and item[col_info.name] != '' %}
+                                        {% set val = item[col_info.name] | float %}
+                                        {% if (val % 1) == 0 %} {# Tam sayı kontrolü #}
+                                            {{ val | int }}
+                                        {% else %}
+                                            {{ val }}
+                                        {% endif %}
+                                    {% else %}
+                                        {# Boş veya geçersiz sayısal değerler için boş string göster #}
+                                        {{ '' }}
+                                    {% endif %}
+                                {% else %} {# Metin tipi ve diğer bilinmeyen tipler #}
+                                    {{ item[col_info.name] | default('') }}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td>
+                            <a href="{{ url_for('stok.stok_listesi', edit=item.id) }}" class="btn btn-sm btn-warning me-2 rounded-pill">Düzenle</a>
+                            <button type="button" class="btn btn-sm btn-danger rounded-pill"
+                                data-bs-toggle="modal" data-bs-target="#deleteConfirmModal"
+                                data-product-id="{{ item.id }}" data-product-name="{{ item.name }}">
+                                Sil
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p class="text-muted">Henüz hiç ürün tanımı eklenmedi. Yukarıdaki formu kullanarak yeni ürünler ekleyebilirsiniz.</p> 
+    {% endif %}
+</div>
+
+<!-- Sütun Görünürlük Yönetimi Modalı -->
+<div class="modal fade" id="columnVisibilityModal" tabindex="-1" aria-labelledby="columnVisibilityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title" id="columnVisibilityModalLabel">Sütunları Yönet</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Hangi sütunların tabloda görüneceğini seçin.</p>
+                <div class="list-group">
+                    {% for col_info in all_display_columns_with_info %}
+                        {% if col_info.name not in ['name', 'price', 'user_product_id', 'id'] %} 
+                            <div class="list-group-item d-flex align-items-center justify-content-between">
+                                <label class="form-check-label user-select-none" for="toggle-{{ col_info.name }}">
+                                    {{ col_info.name.replace('_', ' ').title() }}
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input column-toggle" type="checkbox" role="switch" id="toggle-{{ col_info.name }}"
+                                           data-column-name="{{ col_info.name }}"
+                                           {% if column_visibility_preferences.get(col_info.name, true) %}checked{% endif %}>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="alert alert-info mt-3" role="alert">
+                    "Ürün Adı", "Fiyat", "Ürün Kodu" gibi temel sütunlar her zaman görünürdür ve gizlenemez.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parametreleri Yönet Modalı (Ad Değiştirme ve Seçenek Düzenleme için) -->
+<div class="modal fade" id="manageParametersModal" tabindex="-1" aria-labelledby="manageParametersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="manageParametersModalLabel">Ürün Özelliklerini Yönet</h5> 
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">Mevcut ürün özelliklerinin adlarını değiştirebilir veya seçenekli liste özelliklerinin seçeneklerini düzenleyebilirsiniz.</p> 
+                
+                <div class="list-group mb-4">
+                    {% for col_name, col_info in dynamic_columns_info.items() %}
+                        <div class="list-group-item d-flex align-items-center justify-content-between flex-wrap py-3">
+                            <div class="col-md-5 col-12 mb-2 mb-md-0">
+                                <strong class="me-2">{{ col_name.replace('_', ' ').title() }}</strong>
+                                <span class="badge bg-secondary">{{ col_info.column_type.capitalize() }}</span>
+                            </div>
+                            <div class="col-md-7 col-12 d-flex flex-wrap gap-2 justify-content-end">
+                                <!-- Ad Değiştirme Formu -->
+                                <form action="{{ url_for('stok.rename_column') }}" method="POST" class="d-flex align-items-center flex-grow-1 flex-md-grow-0 me-md-2">
+                                    <input type="hidden" name="old_column_name" value="{{ col_name }}">
+                                    <input type="text" name="new_column_name" class="form-control form-control-sm rounded-pill me-2" 
+                                           placeholder="Yeni adı" value="" required>
+                                    <button type="submit" class="btn btn-sm btn-outline-info rounded-pill">Adı Değiştir</button>
+                                </form>
+                                {% if col_info.column_type == 'select' %}
+                                    <!-- Seçenekleri Düzenle Butonu -->
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill" 
+                                            data-bs-toggle="modal" data-bs-target="#editOptionsModal"
+                                            data-column-name="{{ col_name }}"
+                                            data-current-options='{{ col_info.options | tojson }}'> {# Buradaki tırnaklar çift tırnaktan tek tırnağa değiştirildi! #}
+                                        Seçenekleri Düzenle
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info text-center mt-3 mb-0">Henüz dinamik ürün özelliği eklenmedi.</div> 
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Seçenekleri Düzenle Modalı (Alt Modal - Yeniden Tasarlandı) -->
+<div class="modal fade" id="editOptionsModal" tabindex="-1" aria-labelledby="editOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editOptionsModalLabel">Seçenekleri Düzenle - <span id="currentColumnNameForOptions"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Seçenekleri aşağıdaki listeden yönetin. Yeni seçenek eklemek veya mevcut olanları silmek için kullanın.</p>
+                <div class="mb-3">
+                    <label for="new_option_input" class="form-label fw-bold">Yeni Seçenek Ekle:</label>
+                    <div class="input-group">
+                        <input type="text" id="new_option_input" class="form-control rounded-pill" placeholder="Yeni seçenek">
+                        <button class="btn btn-outline-success rounded-pill ms-2" type="button" id="add_option_button">Ekle</button>
+                    </div>
+                </div>
+                <div class="list-group mb-3" id="current_options_list">
+                    <!-- Seçenekler buraya JavaScript ile yüklenecek -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary rounded-pill" id="save_options_button">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ürün Silme Onay Modalı -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">Ürün Tanımını Silmeyi Onayla</h5> 
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>"<span id="productToDeleteName"></span>"</strong> adlı ürün tanımını silmek istediğinizden emin misiniz? Bu işlem, bu ürüne ait tüm envanter kayıtlarını da siler ve geri alınamaz.</p> 
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">İptal</button>
+                <form id="deleteProductForm" method="POST" action="">
+                    <button type="submit" class="btn btn-danger rounded-pill">Evet, Sil</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Özel JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ---- Yeni Parametre Ekleme Formu İçin JavaScript Mantığı ----
+    const newColumnTypeRadios = document.querySelectorAll('input[name="column_type"]');
+    const addOptionsInputGroup = document.getElementById('add_options_input_group');
+    const newOptionInputAdd = document.getElementById('new_option_input_add');
+    const addOptionButtonAdd = document.getElementById('add_option_button_add');
+    const currentOptionsListAdd = document.getElementById('current_options_list_add');
+    const optionsHiddenInput = document.getElementById('options_hidden_input');
+
+    let currentOptionsArrayAddForm = []; 
+
+    function renderOptionsListAddForm() {
+        currentOptionsListAdd.innerHTML = '';
+        if (currentOptionsArrayAddForm.length === 0) {
+            currentOptionsListAdd.innerHTML = '<div class="alert alert-warning text-center">Henüz seçenek eklenmedi.</div>';
+        }
+        currentOptionsArrayAddForm.forEach((option, index) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center rounded-pill mb-2 shadow-sm';
+            listItem.innerHTML = `
+                <span>${option}</span>
+                <button type="button" class="btn btn-sm btn-danger rounded-circle remove-option-add-form-btn" data-index="${index}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+            currentOptionsListAdd.appendChild(listItem);
+        });
+        document.querySelectorAll('.remove-option-add-form-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const indexToRemove = parseInt(this.dataset.index);
+                currentOptionsArrayAddForm.splice(indexToRemove, 1);
+                renderOptionsListAddForm();
+                updateHiddenOptionsInput(); 
+            });
+        });
+        updateHiddenOptionsInput(); 
+    }
+
+    function updateHiddenOptionsInput() {
+        optionsHiddenInput.value = currentOptionsArrayAddForm.join(',');
+    }
+
+    window.toggleAddOptionsInput = function() {
+        const columnType = document.querySelector('input[name="column_type"]:checked').value;
+        if (columnType === 'select') {
+            addOptionsInputGroup.style.display = 'block';
+            renderOptionsListAddForm(); 
+        } else {
+            addOptionsInputGroup.style.display = 'none';
+            newOptionInputAdd.removeAttribute('required');
+            newOptionInputAdd.value = '';
+            currentOptionsArrayAddForm = []; 
+            renderOptionsListAddForm(); 
+        }
+    };
+    toggleAddOptionsInput();
+
+    addOptionButtonAdd.addEventListener('click', function() {
+        const newOptionText = newOptionInputAdd.value.trim();
+        if (newOptionText && !currentOptionsArrayAddForm.includes(newOptionText)) {
+            currentOptionsArrayAddForm.push(newOptionText);
+            newOptionInputAdd.value = '';
+            renderOptionsListAddForm();
+        } else if (currentOptionsArrayAddForm.includes(newOptionText)) {
+            alert('Bu seçenek zaten mevcut!');
+        } else {
+            alert('Lütfen bir seçenek girin.');
+        }
+    });
+
+    newOptionInputAdd.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addOptionButtonAdd.click();
+        }
+    });
+
+    // ---- Genel Sütun Görünürlüğü Toggle İşlemleri ----
+    const columnToggles = document.querySelectorAll('.column-toggle');
+    columnToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const columnName = this.dataset.columnName;
+            const isVisible = this.checked;
+
+            fetch('{{ url_for("stok.toggle_column_visibility") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'column_name': columnName,
+                    'is_visible': isVisible
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const headerCells = document.querySelectorAll(`th[data-column-name="${columnName}"]`);
+                    const dataCells = document.querySelectorAll(`td[data-column-name="${columnName}"]`);
+
+                    if (isVisible) {
+                        headerCells.forEach(cell => cell.classList.remove('d-none'));
+                        dataCells.forEach(cell => cell.classList.remove('d-none'));
+                    } else {
+                        headerCells.forEach(cell => cell.classList.add('d-none'));
+                        dataCells.forEach(cell => cell.classList.add('d-none'));
+                    }
+                } else {
+                    alert('Hata oluştu: ' + data.message); 
+                    this.checked = !isVisible; 
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('İşlem sırasında bir hata oluştu.');
+                this.checked = !isVisible; 
+            });
+        });
+    });
+
+    // ---- Ürün Silme Onayı Modalı için veri aktarımı ----
+    const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+    deleteConfirmModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const productId = button.dataset.productId;
+        const productName = button.dataset.productName;
+
+        const deleteForm = document.getElementById('deleteProductForm');
+        deleteForm.action = '{{ url_for("stok.delete_product", product_id=0) }}'.replace('/0', '/' + productId);
+
+        const productToDeleteNameSpan = document.getElementById('productToDeleteName');
+        productToDeleteNameSpan.textContent = productName;
+    });
+
+    // ---- Seçenekleri Düzenle Modalı için JavaScript İşlemleri ----
+    const editOptionsModal = document.getElementById('editOptionsModal');
+    const newOptionInput = document.getElementById('new_option_input');
+    const addOptionButton = document.getElementById('add_option_button');
+    const currentOptionsList = document.getElementById('current_options_list');
+    const saveOptionsButton = document.getElementById('save_options_button');
+    let currentEditingColumnName = '';
+    let currentOptionsArray = []; 
+
+    function toReadableColumnName(str) {
+        return str.replace(/_/g, ' ') 
+                  .split(' ')         
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) 
+                  .join(' ');         
+    }
+
+    function renderOptionsListEditForm() {
+        currentOptionsList.innerHTML = ''; 
+        if (currentOptionsArray.length === 0) {
+            currentOptionsList.innerHTML = '<div class="alert alert-warning text-center">Henüz seçenek eklenmedi.</div>';
+            return;
+        }
+        currentOptionsArray.forEach((option, index) => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center rounded-pill mb-2 shadow-sm';
+            listItem.innerHTML = `
+                <span>${option}</span>
+                <button type="button" class="btn btn-sm btn-danger rounded-circle remove-option-edit-form-btn" data-index="${index}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+            currentOptionsList.appendChild(listItem);
+        });
+
+        document.querySelectorAll('.remove-option-edit-form-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const indexToRemove = parseInt(this.dataset.index);
+                currentOptionsArray.splice(indexToRemove, 1); 
+                renderOptionsListEditForm(); 
+            });
+        });
+    }
+
+    editOptionsModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget; 
+        currentEditingColumnName = button.dataset.columnName;
+        let currentOptionsJson = button.dataset.currentOptions; 
+
+        document.getElementById('currentColumnNameForOptions').textContent = toReadableColumnName(currentEditingColumnName);
+        
+        let tempOptionsArray = [];
+        console.log(`EditOptionsModal: ${currentEditingColumnName} için raw options (data-current-options):`, currentOptionsJson);
+
+        if (currentOptionsJson && currentOptionsJson !== 'null' && currentOptionsJson.trim() !== '') {
+            try {
+                const parsedData = JSON.parse(currentOptionsJson);
+                if (Array.isArray(parsedData)) {
+                    tempOptionsArray = parsedData;
+                    console.log(`EditOptionsModal: ${currentEditingColumnName} için JSON olarak başarıyla ayrıştırıldı (Dizi):`, tempOptionsArray);
+                } else {
+                    console.error(`EditOptionsModal: ${currentEditingColumnName} için JSON geçerli ama dizi değil (backend hatası olabilir). Boş liste olarak başlatılıyor. Gelen:`, currentOptionsJson);
+                    tempOptionsArray = []; 
+                }
+            } catch (e) {
+                console.error(`EditOptionsModal: ${currentEditingColumnName} için JSON ayrıştırma hatası. Hata:`, e, "Gelen string (malformasyon muhtemel):", currentOptionsJson);
+                tempOptionsArray = []; 
+            }
+        } else {
+            console.log(`EditOptionsModal: ${currentEditingColumnName} için seçenekler boş veya null/empty string.`);
+        }
+        
+        currentOptionsArray = tempOptionsArray; 
+        console.log(`EditOptionsModal: ${currentEditingColumnName} için final currentOptionsArray:`, currentOptionsArray);
+
+        renderOptionsListEditForm(); 
+        newOptionInput.value = ''; 
+        newOptionInput.focus();
+    });
+
+    addOptionButton.addEventListener('click', function() {
+        const newOptionText = newOptionInput.value.trim();
+        if (newOptionText && !currentOptionsArray.includes(newOptionText)) {
+            currentOptionsArray.push(newOptionText);
+            newOptionInput.value = ''; 
+            renderOptionsListEditForm(); 
+        } else if (currentOptionsArray.includes(newOptionText)) {
+            alert('Bu seçenek zaten mevcut!');
+        } else {
+            alert('Lütfen bir seçenek girin.');
+        }
+    });
+
+    newOptionInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); 
+            addOptionButton.click(); 
+        }
+    });
+
+    saveOptionsButton.addEventListener('click', function() {
+        const optionsToSend = currentOptionsArray.join(','); 
+        const formData = new URLSearchParams();
+        formData.append('column_name', currentEditingColumnName);
+        formData.append('options_input', optionsToSend);
+
+        fetch('{{ url_for("stok.update_column_options") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData
+        })
+        .then(response => response.json()) 
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Seçenekler başarıyla güncellendi!');
+                location.reload(); 
+            } else {
+                alert('Hata: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Seçenekler güncellenirken bir hata oluştu.');
+        });
+    });
+});
+</script>
+<!-- Bootstrap Icons (Optional, for better visuals) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
